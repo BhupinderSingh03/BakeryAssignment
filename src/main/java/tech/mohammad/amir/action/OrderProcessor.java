@@ -1,0 +1,113 @@
+package tech.mohammad.amir.action;
+
+import tech.mohammad.amir.common.exceptions.InputException;
+import tech.mohammad.amir.common.parsers.Parser;
+import tech.mohammad.amir.common.parsers.impl.UserInputParser;
+import tech.mohammad.amir.models.Product;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+
+import static java.util.Collections.singletonList;
+import static java.util.Objects.nonNull;
+import static java.util.stream.Collectors.summingDouble;
+import static tech.mohammad.amir.common.Constants.*;
+import static tech.mohammad.amir.io.impl.ConsoleWriter.write;
+
+public class OrderProcessor {
+    private BakeryProductStore bakeryProductStore = BakeryProductStore.getInstance();
+    private Parser<Integer> userInputParser = new UserInputParser();
+    private Bakery bakery;
+
+    public OrderProcessor(Bakery bakery) {
+        this.bakery = bakery;
+    }
+
+    public void process(String inputString) {
+        if(!EXIT_COMMANDS.contains(inputString.trim())) {
+            try {
+                Map<String, Integer> userInput = userInputParser.parseList(singletonList(inputString));
+                userInput.entrySet().forEach(this::generateOrderBill);
+            } catch (InputException ie) {
+                write(ie.getMessage());
+            }
+        } else {
+            bakery.close();
+        }
+    }
+
+    private void generateOrderBill(Entry<String, Integer> userInputEntry) {
+        final Product product = bakeryProductStore.findProduct(userInputEntry.getKey());
+
+        if(nonNull(product)) {
+            final Integer quantity = userInputEntry.getValue();
+            printBill(calculateBill(product, quantity), product, quantity);
+        } else {
+            throw new InputException(INVALID_PRODUCT_CODE);
+        }
+    }
+
+    private Map<Integer, Integer> calculateBill(Product product, Integer quantity) {
+        Map<Integer, Integer> output = new HashMap<>();
+
+        List<Integer> packSizeList = product.getSortedSupportedPackList();
+
+        int q = quantity;
+        int start = 0;
+        int packSize = 0;
+
+        while (q > 0 && start < packSizeList.size()) {
+            if(packSize > 0) {
+                if(packSizeList.indexOf(packSize)+1 == packSizeList.size()) {
+                    packSize = packSizeList.get(0);
+                }
+
+                if(output.containsKey(packSize)) {
+                    q = q + packSize;
+
+                    if (output.get(packSize) > 1) {
+                        output.put(packSize, output.get(packSize) - 1);
+                    } else {
+                        output.remove(packSize);
+                    }
+
+                    start = packSizeList.indexOf(packSize) + 1;
+                }
+            }
+
+            for (int i=start; i<packSizeList.size(); i++) {
+                if (q/packSizeList.get(i) > 0) {
+                    packSize = packSizeList.get(i);
+                    output.put(packSize, q/packSize);
+                    q = q % packSize;
+                }
+            }
+
+            start++;
+        }
+
+        if(q > 0) {
+            output.clear();
+        }
+
+        return output;
+    }
+
+    private void printBill(Map<Integer, Integer> output, Product product, Integer quantity) {
+        if(output.isEmpty()) {
+            write(INVALID_INPUT_PRODUCT_COUNT);
+        } else {
+            Double totalOrderValue = output.entrySet().stream()
+                    .collect(summingDouble(entry -> entry.getValue() * product.getPrice(entry.getKey())));
+
+            write(quantity + SPACE + product + SPACE + CURRENCY + totalOrderValue.floatValue());
+
+            output.entrySet().forEach(outputEntry -> {
+                write(TABSPACE + outputEntry.getValue() + MUL + outputEntry.getKey() + CURRENCY
+                        + product.getPrice(outputEntry.getKey()));
+            });
+        }
+    }
+}
