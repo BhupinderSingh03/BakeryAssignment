@@ -15,7 +15,6 @@ public class ProductPriceParser implements Parser<List<ProductPrice>> {
     @Override
     public Map<String, List<ProductPrice>> parseList(List<String> lines) {
         return lines.stream()
-                .skip(0)
                 .map(this::getProductQuantityPrice)
                 .collect(groupingBy(ProductPrice::getProductCode));
     }

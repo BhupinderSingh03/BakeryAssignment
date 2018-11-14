@@ -18,7 +18,7 @@ public class Bakery {
 
         while (open) {
             write(ORDER_TEXT);
-            orderProcessor.process(reader.readValue());
+            write(orderProcessor.process(reader.readValue()));
             write(LINE);
         }
     }

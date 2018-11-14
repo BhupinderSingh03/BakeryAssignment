@@ -11,7 +11,7 @@ import static java.util.stream.Collectors.toMap;
 public class ProductParser implements Parser<Product> {
     @Override
     public Map<String, Product> parseList(List<String> lines) {
-        return lines.stream().skip(0)
+        return lines.stream()
                 .map(this::getProduct)
                 .collect(toMap(Product::getCode, product -> product));
     }
